@@ -1,0 +1,6 @@
+*.dll
+*.xml
+Ochawan/bin
+Ochawan/obj
+Ochawan/CommunityFile.txt
+Ochawan/LiveColl.txt

@@ -1,0 +1,7 @@
+﻿Firefox
+C:\work\nico\BouyomiChan\BouyomiChan.exe
+C:\Program Files (x86)\niwango\nicoliveenc\Nicoliveenc.exe
+C:\Program Files (x86)\OBS\OBS.exe
+C:\Program Files (x86)\CeVIO\CeVIO Creative Studio FREE\CeVIO Creative Studio FREE.exe
+
+// Browser = Firefox or Chrome

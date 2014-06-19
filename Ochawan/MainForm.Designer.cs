@@ -189,7 +189,7 @@
             // 
             this.BrowseButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.BrowseButton.Font = new System.Drawing.Font("MS UI Gothic", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(128)));
-            this.BrowseButton.Location = new System.Drawing.Point(432, 64);
+            this.BrowseButton.Location = new System.Drawing.Point(422, 64);
             this.BrowseButton.Name = "BrowseButton";
             this.BrowseButton.Size = new System.Drawing.Size(88, 27);
             this.BrowseButton.TabIndex = 4;
@@ -203,7 +203,7 @@
             this.checkBox1.AutoSize = true;
             this.checkBox1.Checked = true;
             this.checkBox1.CheckState = System.Windows.Forms.CheckState.Checked;
-            this.checkBox1.Location = new System.Drawing.Point(431, 210);
+            this.checkBox1.Location = new System.Drawing.Point(430, 219);
             this.checkBox1.Name = "checkBox1";
             this.checkBox1.Size = new System.Drawing.Size(69, 16);
             this.checkBox1.TabIndex = 5;
@@ -236,9 +236,9 @@
             // 
             this.button8.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.button8.Font = new System.Drawing.Font("MS UI Gothic", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(128)));
-            this.button8.Location = new System.Drawing.Point(432, 97);
+            this.button8.Location = new System.Drawing.Point(421, 97);
             this.button8.Name = "button8";
-            this.button8.Size = new System.Drawing.Size(87, 29);
+            this.button8.Size = new System.Drawing.Size(89, 29);
             this.button8.TabIndex = 13;
             this.button8.Text = "Commnity";
             this.button8.UseVisualStyleBackColor = true;
@@ -508,7 +508,7 @@
             // 
             this.checkBox4.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.checkBox4.AutoSize = true;
-            this.checkBox4.Location = new System.Drawing.Point(431, 235);
+            this.checkBox4.Location = new System.Drawing.Point(430, 244);
             this.checkBox4.Name = "checkBox4";
             this.checkBox4.Size = new System.Drawing.Size(80, 16);
             this.checkBox4.TabIndex = 19;
@@ -521,7 +521,7 @@
             this.checkBox5.AutoSize = true;
             this.checkBox5.Checked = true;
             this.checkBox5.CheckState = System.Windows.Forms.CheckState.Checked;
-            this.checkBox5.Location = new System.Drawing.Point(431, 185);
+            this.checkBox5.Location = new System.Drawing.Point(430, 194);
             this.checkBox5.Name = "checkBox5";
             this.checkBox5.Size = new System.Drawing.Size(97, 16);
             this.checkBox5.TabIndex = 20;
@@ -534,7 +534,7 @@
             this.checkBox6.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.checkBox6.AutoSize = true;
             this.checkBox6.Font = new System.Drawing.Font("MS UI Gothic", 11.25F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(128)));
-            this.checkBox6.Location = new System.Drawing.Point(432, 159);
+            this.checkBox6.Location = new System.Drawing.Point(431, 168);
             this.checkBox6.Name = "checkBox6";
             this.checkBox6.Size = new System.Drawing.Size(50, 19);
             this.checkBox6.TabIndex = 21;
@@ -545,11 +545,11 @@
             // textBox1
             // 
             this.textBox1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.textBox1.Enabled = false;
-            this.textBox1.Location = new System.Drawing.Point(491, 132);
+            this.textBox1.Location = new System.Drawing.Point(414, 141);
             this.textBox1.Name = "textBox1";
-            this.textBox1.Size = new System.Drawing.Size(44, 19);
+            this.textBox1.Size = new System.Drawing.Size(120, 19);
             this.textBox1.TabIndex = 22;
+            this.textBox1.KeyDown += new System.Windows.Forms.KeyEventHandler(this.textBox1_KeyDown);
             // 
             // checkBox2
             // 
@@ -557,7 +557,7 @@
             this.checkBox2.AutoSize = true;
             this.checkBox2.Checked = true;
             this.checkBox2.CheckState = System.Windows.Forms.CheckState.Checked;
-            this.checkBox2.Location = new System.Drawing.Point(431, 262);
+            this.checkBox2.Location = new System.Drawing.Point(430, 271);
             this.checkBox2.Name = "checkBox2";
             this.checkBox2.Size = new System.Drawing.Size(71, 16);
             this.checkBox2.TabIndex = 23;

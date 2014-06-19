@@ -55,30 +55,7 @@ namespace Ochawan
             format = new StringFormat();
             format.Alignment = StringAlignment.Far;
             LoadFile("GameForm.cs");
-        }
-
-        void test()
-        {
-            var testcode = new string[] {
-                "unless false",
-                "print \"hello\" 100 100",
-                "elsif 100 < 60 + 60",
-                "print \"calc\" 100 100",
-                "end",
-                "var i = 0",
-                "while i < 5",
-                "i = i + 1",
-                "print \"a\" 100 $ 50 * i",
-                "end",
-                "func p text : str -> void",
-                "print ( \"defined_print_\" ++ text ) 200 100",
-                "end",
-                "p \"text\"",
-                "invalidate"
-            };
-            foreach (var str in testcode)
-                Exec("add " + str, true);
-            Exec("run", true);
+            Term.InitVars();
         }
 
         public void Exec(string cmd, bool come)
@@ -102,6 +79,10 @@ namespace Ochawan
                 {
                     comelang.Stop();
                     this.Invalidate();
+                }
+                else if (cmd.StartsWith("input"))
+                {
+                    comelang.Input(cmd.Substring(6));
                 }
                 return;
             }
@@ -143,7 +124,7 @@ namespace Ochawan
                         comelang.Run();
                         return;
                     case "stop":
-                        return;
+                        return; // run してないときは何もしない
                     case "write":
                         if (rewrite(words[1], comelang.Write)) return;
                         else return;
@@ -161,6 +142,9 @@ namespace Ochawan
                             ShowLine(comelang.sentences.Count);
                         }
                         return;
+                    case "input":
+                        msg = "停止中です";
+                        break;
                     case "load":
                         if (comelang.Load())
                             msg = "ロードしました";
@@ -326,7 +310,57 @@ namespace Ochawan
         {
             test();
         }
-        
+
+        void test()
+        {
+            var testcode = new string[] {
+                "var width = 9",
+                "var height = 9",
+                "var numMine = 10",
+                "var numCell = width * height - 1",
+                "var cells = [ 0 .. numCell ]",
+                "var mineNums = clone cells",
+                "var n = 0",
+                "while n < numMine",
+                    "var rd = random numCell",
+                    "if cells !! rd != -1",
+                        "cells rd = -1",
+                        "n = n + 1",
+                    "end",
+                "end",
+                "func countAt pos : num -> num",
+                    "var count = 0",
+                    "return -1 if cells !! pos == -1",
+                    "",
+                    "var dr = width + 1",
+                    "var dl = width - 1",
+                    "for var d in [ -1 1 width -width dr -dr dl -dl ]",
+                        "var dp = pos + d",
+                        "count = count + 1 if dp > 0 && dp < numCell && cells !! dp == -1",
+                    "end",
+                    "return count",
+                "end",
+                "map mineNums countAt item",
+                "for var ix in [ 0 .. numCell ]",
+                    "var val = mineNums !! ix",
+                    "var x = ix % width * 20 + 20",
+                    "var y = ( ix - ix % width ) / width * 20 + 20",
+                    "print ( str val ) x y",
+                "end",
+                "var fill = fillrect 10 10",
+                "for var ix in [ 0 .. numCell ]",
+                    "var val = mineNums !! ix",
+                    "var x = ix % width * 20 + 20",
+                    "var y = ( ix - ix % width ) / width * 20 + 20",
+                    "fill x y",
+                "end",
+                "invalidate"
+            };
+            foreach (var str in testcode)
+                Exec("add " + str, true);
+            Exec("run", true);
+        }
+
     }
 
     class ComeLang
@@ -334,10 +368,12 @@ namespace Ochawan
         Graphics grfx;
         ViewForm form;
         Parser parser = new Parser();
-        Font bigmsfont = new Font("MS UI Gothic", 24);
+        Stack<Parser> nestFunc = new Stack<Parser>();
+        Font msfont = new Font("MS UI Gothic", 14, FontStyle.Bold);
         public Bitmap bmp = new Bitmap(640, 360);
         public List<string> sentences = new List<string>();
         public List<int> codeDepth = new List<int>();
+        public Queue<string> InQueue = new Queue<string>();
         int curDepth = 0;
         bool isRun = false;
         bool isActive = false;
@@ -400,10 +436,17 @@ namespace Ochawan
             }
         }
 
+        public void Input(string data)
+        {
+            InQueue.Enqueue(data);
+        }
+
         public async void Run()
         {
             isRun = true;
             isActive = true;
+            InQueue.Clear();
+            Term.InitVars();
             var line = 0;
             await Task.Factory.StartNew(() =>
             {
@@ -416,15 +459,16 @@ namespace Ochawan
                         if (line == -1)
                             throw new Exception("return from global region");
                         if (line >= sentences.Count)
+                        {
                             isRun = false;
+                            if (parser.NestLevel != 0)
+                                throw new Exception(" \"end\"  is not found");
+                        }
                     }
                 }
                 catch (Exception e)
                 {
-                    Stop();
-                    grfx.Clear(Color.DarkRed);
-                    grfx.DrawString((line + 1) + "行目：" + e.Message, bigmsfont, Brushes.Black, 10, 100);
-                    form.Invalidate();
+                    showException(e, line);
                 }
             });
         }
@@ -455,6 +499,24 @@ namespace Ochawan
 
         #endregion
 
+        void showException (Exception e, int line)
+        {
+            Stop();
+            grfx.Clear(Color.DarkRed);
+            var width = 30;
+            var count = Math.Min(e.Message.Length, width);
+
+            if (e.GetType() == typeof(FuncException))
+                line = ((FuncException)e).line;
+
+            grfx.DrawString((line + 1) + "行目：" + e.Message.Substring(0, count), msfont, Brushes.Black, 10, 100);
+            if (e.Message.Length > width)
+                grfx.DrawString(e.Message.Substring(width), msfont, Brushes.Black, 100, 130);
+            grfx.DrawString(sentences[line], msfont, Brushes.Black, 20, 160);
+
+            form.Invalidate();
+        }
+
         void check(int line, IEnumerable<string> words)
         {
             if (words.Count() == 0)
@@ -465,6 +527,10 @@ namespace Ochawan
             {
                 switch (words.ElementAt(0))
                 {
+                    case "var":
+                        parser.Var(words.ToArray());
+                        codeDepth.Add(curDepth);
+                        break;
                     case "for":
                     case "func":
                     case "while":
@@ -491,7 +557,7 @@ namespace Ochawan
             catch (Exception e)
             {
                 grfx.Clear(Color.DarkRed);
-                grfx.DrawString(e.Message, bigmsfont, Brushes.Black, 10, 100);
+                grfx.DrawString(e.Message, msfont, Brushes.Black, 10, 100);
                 form.Invalidate();
                 isActive = true;
             }
@@ -503,9 +569,10 @@ namespace Ochawan
                 return line + 1;
 
             var words = sentences[line].Split(' ');
-
-            switch (words[0])
+            
+           switch (words[0])
             {
+                case "map":    parser.Map(words); break;
                 case "for":    parser.For(words, line); break;
                 case "func":   parser.Func(words, line); break;
                 case "var":    parser.Var(words); break;
@@ -515,6 +582,7 @@ namespace Ochawan
                 case "unless": parser.If(words, true); break;
                 case "elsif":  parser.Elsif(words); break;
                 case "else":   parser.Else(); break;
+                case "return": return parser.Return(words, line);
                 case "end":
                     var next = parser.Next();
                     if (next == -1)
@@ -540,6 +608,8 @@ namespace Ochawan
             var line = func.info.begin;
             var end = func.info.end;
             Term.SettingLocal(func.info, func.args);
+            nestFunc.Push(parser);
+            parser = new Parser();
             try
             {
                 while (isRun)
@@ -552,26 +622,30 @@ namespace Ochawan
                     if (line >= sentences.Count)
                         isRun = false;
                 }
-                return new Term("function is not terminated", null);
+                throw new Exception("function is not terminated");
+            }
+            catch (Exception e)
+            {
+                if (e.GetType() == typeof(FuncException))
+                    line = ((FuncException)e).line;
+                throw new FuncException(e, line);
             }
             finally
             {
+                parser = nestFunc.Pop();
                 Term.ReleaseLocal();
             }
         }
     }
 
-    enum Kind { num, boolean, color, var, local, str, nil, unknown, error }
-
     class Parser
     {
-        public static Regex signs = new Regex(@"[\+\-\*\/\:\?%&|#!<>@=]+");
-        public static Regex termPatt = new Regex(@"[A-Za-z0-9]+|^""$""|\(|\$"); 
-        public static HashSet<string> reserved = new HashSet<string> { "if", "while", "end", "let", "func", "type" };
+        public static Regex signs = new Regex(@"[\-+*/:?%&|#!<>@=]+");
+        public static Regex termPatt = new Regex(@"-?[A-Za-z0-9]+|^""$""|\(|\$"); 
         int index;
         string[] tokens;
         bool isExec;
-        int nestLevel = 0;
+        public int NestLevel = 0;
         bool ignore = false;
         bool ignoreElse = false;
         Stack<int> nests = new Stack<int>();
@@ -579,8 +653,9 @@ namespace Ochawan
         Stack<Tuple<Term, int>> forCollection = new Stack<Tuple<Term, int>>();
         Func<object, string, object, object> operation;
         static Dictionary<string, int> opOrder = 
-            new Dictionary<string, int> { { "*", 10 }, { "/", 10 }, { "%", 10 }, 
-                                          {"+", 9}, {"-", 9},
+            new Dictionary<string, int> { {"!!", 8},
+                                          {"*", 7}, {"/", 7}, {"%", 7}, 
+                                          {"+", 6}, {"-", 6},
                                           {"++",5},
                                           {">", 4}, {">=", 4},{"<", 4},{"<=", 4},
                                           {"==", 3}, {"!=", 3},
@@ -594,26 +669,29 @@ namespace Ochawan
             else
                 return ""; } }
 
-        public Type Check(string[] tokens)
+        public Type Check(string[] tokens, int ix = 0)
         {
-            index = 0;
             this.tokens = tokens;
+            index = ix;
             isExec = false;
             operation = checkOp;
-            return (Type)expr();
+            var ret = expr();
+            return (Type)ret;
         }
 
-        public object Expr(string[] tokens)
+        public object Expr(string[] tokens, int ix = 0)
         {
-            if (tokens == null)
-                return true;
-
-            index = 0;
             this.tokens = tokens;
+            index = ix;
             isExec = true;
             operation = doOp;
 
             return expr();
+        }
+
+        public void CheckSentence(string[] tokens)
+        {
+
         }
 
         public void Sentence(string[] tokens)
@@ -621,43 +699,83 @@ namespace Ochawan
             if (ignore)
                 return;
 
-            if (tokens.Length > 3 && tokens[1] == "=")
-            {
-                var ts = tokens.Skip(2).ToArray();
-                Term.Assign(tokens[0], Expr(ts), Check(ts));
-                return;
-            }
+            tokens = onCond(tokens);
+            if (tokens != null)
+                assignSentence(tokens);
+        }
 
+        string[] onCond(string[] tokens)
+        {
             int ix;
             bool cond;
+            string[] ret = null;
             if (tokens.Contains("if"))
             {
                 ix = Array.IndexOf(tokens, "if");
-                cond = (bool)Expr(tokens.Skip(ix + 1).ToArray());
+                cond = (bool)Expr(tokens, ix + 1);
                 if (cond)
-                    Expr(tokens.Take(ix).ToArray());
+                    ret = tokens.Take(ix).ToArray();
             }
             else if (tokens.Contains("unless"))
             {
                 ix = Array.IndexOf(tokens, "unless");
-                cond = (bool)Expr(tokens.Skip(ix + 1).ToArray());
+                cond = (bool)Expr(tokens, ix + 1);
                 if (!cond)
-                    Expr(tokens.Take(ix).ToArray());
+                    ret = tokens.Take(ix).ToArray();
+            }
+            else
+                ret = tokens;
+
+            return ret;
+        }
+
+        void assignSentence(string[] tokens)
+        {
+            if (tokens.Length > 2 && tokens[1] == "=")
+            {
+                Term.Assign(tokens[0], Expr(tokens, 2), Check(tokens, 2));
+            }
+            else if (tokens.Length > 3 && tokens[2] == "=")
+            {
+                var term = (Term)Term.Parse(tokens[0], true);
+                var type = (Type)Term.Parse(tokens[0], false);
+                var index = (float)Term.Parse(tokens[1], true);
+                if (type == Check(tokens, 3))
+                    term.List[(int)index] = Expr(tokens, 3);
+                else
+                    throw new Exception("type mismatch: element is " + type.Name +
+                        ", but expression is " + Check(tokens, 3));
             }
             else
                 Expr(tokens);
         }
 
+        public void Map(string[] tokens)
+        {
+            if (ignore)
+                return;
+            var term = (Term)Term.Parse(tokens[1], true);
+            var type = (Type)Term.Parse(tokens[1], false);
+            var list = term.List;
+            for (var i = 0; i < list.Count; i++)
+            {
+                Term.RegistVar("item", list[i], type);
+                var ret = Expr(tokens, 2);
+                if (ret != null)
+                    list[i] = ret;
+            }
+        }
+
         public void For(string[] tokens, int line)
         {
-            nestLevel++;
+            NestLevel++;
             if (ignore)
                 return;
             if (tokens[1] != "var" || tokens[3] != "in")
                 throw new Exception("syntax error: for-in");
-            nests.Push(nestLevel);
+            nests.Push(NestLevel);
             
-            var collect = (Term)Expr(tokens.Skip(5).ToArray());
+            var collect = (Term)Expr(tokens, 4);
             if (collect.Length > 0)
             {
                 Term.RegistVar(tokens[2], collect.At(0), collect.type);
@@ -673,15 +791,15 @@ namespace Ochawan
 
         public int ForNext(string[] tokens, int next, int line)
         {
-            nestLevel++;
-            nests.Push(nestLevel);
             var collection = forCollection.Pop();
             var collect = collection.Item1;
             var count = collection.Item2;
             if (collect.Length > count)
             {
-                Term.RegistVar(tokens[2],  collect.At(count), collect.type);
-                forCollection.Push(new Tuple<Term, int>(collect, count));
+                NestLevel++;
+                nests.Push(NestLevel);
+                Term.RegistVar(tokens[2], collect.At(count), collect.type);
+                forCollection.Push(new Tuple<Term, int>(collect, count + 1));
                 whileLines.Push(next);
                 return next + 1;
             }
@@ -694,10 +812,10 @@ namespace Ochawan
 
         public void Func(string[] tokens, int line)
         {
-            if (nestLevel != 0 || nests.Count != 0 || ignore)
-                throw new Exception("function can not definite at this context");
-            nestLevel++;
-            nests.Push(nestLevel);
+            if (NestLevel != 0 || nests.Count != 0 || ignore)
+                throw new Exception("function can not define at this context");
+            NestLevel++;
+            nests.Push(NestLevel);
 
             var name = tokens[1];
             var argnames = new List<string>();
@@ -713,7 +831,7 @@ namespace Ochawan
             }
             argtypes.Add(TypeOf(tokens[i + 1]));
             var info = new FuncInfo(line + 1, -1, argnames.ToArray(), argtypes.ToArray());
-            Term.RegistVar(name, new Term(name, info));
+            Term.RegistVar(name, new Term(name, info), typeof(ComeFunc));
 
             ignore = true;
             whileLines.Push(line);
@@ -731,22 +849,35 @@ namespace Ochawan
             }
         }
 
+        public int Return(string[] tokens, int line)
+        {
+            if (ignore)
+                return line + 1;
+
+            tokens = onCond(tokens);
+            if (tokens == null)
+                return line + 1;
+            ComeFunc.Result = Expr(tokens, 1);
+            return -1;
+        }
+
         public void Var(string[] tokens)
         {
+            if (ignore)
+                return;
             var name = tokens[1];
             if (tokens[2] != "=")
                 throw new Exception("syntax error: assignment");
-            var ts = tokens.Skip(3).ToArray();
-            Term.RegistVar(name, Expr(ts), Check(ts));
+            Term.RegistVar(name, Expr(tokens, 3), Check(tokens, 3));
         }
 
         public void While(string[] tokens, int line, bool unless = false)
         {
-            nestLevel++;
+            NestLevel++;
             if (ignore)
                 return;
-            nests.Push(nestLevel);
-            var cond = (bool)Expr(tokens.Skip(1).ToArray());
+            nests.Push(NestLevel);
+            var cond = (bool)Expr(tokens, 1);
             if (unless)
                 cond = !cond;
             if (cond)
@@ -758,11 +889,11 @@ namespace Ochawan
 
         public void If(string[] tokens, bool unless = false)
         {
-            nestLevel++;
+            NestLevel++;
             if (ignore)
                 return;
-            nests.Push(nestLevel);
-            var cond = (bool)Expr(tokens.Skip(1).ToArray());
+            nests.Push(NestLevel);
+            var cond = (bool)Expr(tokens, 1);
             if (unless)
                 cond = !cond;
             ignoreElse = cond;
@@ -773,9 +904,9 @@ namespace Ochawan
         public void Elsif(string[] tokens)
         {
             ignore = true;
-            if (ignoreElse || nests.First() != nestLevel)
+            if (ignoreElse || nests.First() != NestLevel)
                 return;
-            var cond = (bool)Expr(tokens.Skip(1).ToArray());
+            var cond = (bool)Expr(tokens, 1);
             if (!cond)
                 return;
             ignore = false;
@@ -786,18 +917,20 @@ namespace Ochawan
 
         public int Next()
         {
+            if (nests.Count == 0)
+                throw new Exception("endに対応する文がありません");
             var nest = nests.First();
-            if (nest == nestLevel)
+            if (nest == NestLevel)
             {
                 ignore = false;
                 ignoreElse = true;
                 nests.Pop();
-                nestLevel--;
+                NestLevel--;
                 return whileLines.Pop();
             }
-            else if (nest < nestLevel)
+            else if (nest < NestLevel)
             {
-                nestLevel--;
+                NestLevel--;
                 return -1;
             }
             else
@@ -828,19 +961,24 @@ namespace Ochawan
             {
                 var rh = stack.Pop();
                 var op = (string)stack.Pop();
+                var lh = stack.Pop();
+                if (op == "&&" && !(bool)lh || op == "||" && (bool)lh)
+                    return lh;
+
                 if (opOrder[op] >= opOrder[nexToken])
                 {
-                    stack.Push(doOp(stack.Pop(), op, rh));
+                    stack.Push(operation(lh, op, rh));
                 }
                 else
                 {
+                    stack.Push(lh);
                     stack.Push(op);
                     stack.Push(rh);
-                    stack.Push(nexToken);
-                    index++; // op
-                    index++; // right hand
-                    stack.Push(fexp());
                 }
+                stack.Push(nexToken);
+                index++; // op
+                index++; // right hand
+                stack.Push(fexp());
             }
 
             var ret = stack.Pop();
@@ -855,11 +993,14 @@ namespace Ochawan
         object fexp()
         {
             var exp = aexp();
+            var isApp = true;
             while(termPatt.IsMatch(nexToken))
             {
                 index++;
-                exp = Term.App(exp, aexp(), isExec);
+                isApp = Term.App(ref exp, aexp(), isExec);
             }
+            if (!isApp && !isExec)
+                return typeof(ComeFunc);
             return exp;
         }
 
@@ -880,9 +1021,17 @@ namespace Ochawan
             else if (curToken == "[")
             {
                 index++;
-                var ret = new List<object>();
                 var type = Term.Parse(curToken, false);
-                while(curToken == "]")
+
+                if (!isExec)
+                {
+                    while (curToken != "]")
+                        index++;
+                    return type;
+                }
+
+                var ret = new List<object>();
+                while(curToken != "]")
                 {
                     var ele = Term.Parse(curToken, isExec);
                     ret.Add(ele);
@@ -891,14 +1040,14 @@ namespace Ochawan
                     {
                         var end = (float)Term.Parse(nexToken, isExec);
                         var el = (float)ele;
-                        if (el <= end)
-                            while (el <= end)
+                        if (el < end)
+                            while (el < end)
                             {
                                 el++;
                                 ret.Add(el);
                             }
-                        else
-                            while (el >= end)
+                        else if (el > end)
+                            while (el > end)
                             {
                                 el--;
                                 ret.Add(el);
@@ -909,6 +1058,20 @@ namespace Ochawan
                 }
                 index++;
                 return new Term(ret, (Type)type);
+            }
+            else if (curToken.StartsWith("\""))
+            {
+                var str = curToken;
+                while(!curToken.EndsWith("\""))
+                {
+                    index++;
+                    
+                    if (tokens.Length == index + 1)
+                        throw new Exception("no terminate string");
+
+                    str += " " + curToken;
+                }
+                return Term.Parse(str, isExec);
             }
             return Term.Parse(curToken, isExec);
         }
@@ -932,6 +1095,7 @@ namespace Ochawan
                 case "||": return (bool)a  || (bool)b;
                 case "++": return (string)a + (string)b;
                 case "===": return (string)a == (string)b;
+                case "!!": return ((Term)a).At((int)(float)b);
                 default:
                     throw new Exception(code + " operation is not defined");
             }
@@ -965,6 +1129,10 @@ namespace Ochawan
                     if ((Type)a == typeof(string) && (Type)b == typeof(string))
                         return typeof(string);
                     break;
+                case "!!":
+                    if ((Type)b == typeof(float))
+                        return (Type)a;
+                    break;
                 default:
                     throw new Exception(code + " operation is not defined");
             }
@@ -972,26 +1140,33 @@ namespace Ochawan
         }
     }
 
+    class FuncException : Exception
+    {
+        public int line;
+
+        public FuncException(Exception e, int line) : base(e.Message, e)
+        {
+            this.line = line;
+        }
+    }
+
     class Term
     {
-        static Stack<Dictionary<string, Term>> locals = new Stack<Dictionary<string, Term>>();
-        static Dictionary<string, Term> local = new Dictionary<string, Term>();
-        static Dictionary<string, Term> vars = new Dictionary<string, Term>
-        {
-            {"print", new Term("print", new FuncInfo("print"))},
-            {"invalidate", new Term("invalidate", new FuncInfo("void"))}
-        };
+        static Dictionary<string, Term> vars;
+        static Dictionary<string, Term> local;
+        static Stack<Dictionary<string, Term>> locals;
         object content;
         public Type type;
         public FuncInfo info;
-        public List<object> args = new List<object>();
+        public List<object> args;
         public static Term nil = new Term("", null);
 
         public Term(string word, FuncInfo info)
         {
             this.info = info;
-            this.type = typeof(Term);
+            this.type = typeof(ComeFunc);
             this.content = (object)word;
+            this.args = new List<object>();
         }
 
         public Term(object content, Type type)
@@ -1000,10 +1175,40 @@ namespace Ochawan
             this.type = type;
         }
 
+        static Term toTerm(object content, Type type)
+        {
+            if (type == typeof(Term))
+            {
+                type = ((Term)content).type;
+            }
+            else if (type == typeof(ComeFunc))
+            {
+                return (Term)content;
+            }
+            return new Term(content, type);
+        }
+
+        public static void InitVars()
+        {
+            var gfuncs = new Dictionary<string, Term>();
+            ComeFunc.List.ForEach(x => gfuncs.Add(x, new Term(x, new FuncInfo(x))));
+            vars = gfuncs;
+
+            local =  new Dictionary<string, Term>();
+            locals = new Stack<Dictionary<string, Term>>();
+        }
+
         public static object Parse(string word, bool isExec)
         {
             object content;
             Type type;
+            var minus = false;
+
+            if (word[0] == '-' && Char.IsLetter(word[1]))
+            {
+                word = word.Substring(1);
+                minus = true;
+            }
 
             float val;
             if (float.TryParse(word, out val))
@@ -1021,18 +1226,17 @@ namespace Ochawan
                 content = word.Substring(1, word.Length - 2);
                 type = typeof(string);
             }
-            else if (Enum.IsDefined(typeof(KnownColor), word))
-            {
-                content = Color.FromName(word);
-                type = typeof(Color);
-            }
             else if (vars.ContainsKey(word))
             {
                 content = parseVars(vars[word], isExec, out type);
+                if (minus)
+                    content = -(float)content;
             }
             else if (local.ContainsKey(word))
             {
                 content = parseVars(local[word], isExec, out type);
+                if (minus)
+                    content = -(float)content;
             }
             else
             {
@@ -1042,12 +1246,17 @@ namespace Ochawan
             if (isExec)
                 return content;
             else
+            {
+                if (type == typeof(ComeFunc))
+                    return content;
                 return type;
+            }
         }
 
         static object parseVars(Term term, bool isExec, out Type type)
         {
             object content;
+
             if (term.info == null)
             {
                 content = term.content;
@@ -1065,12 +1274,12 @@ namespace Ochawan
                 foreach (var arg in term.args)
                     con.args.Add(arg);
                 content = con;
-                type = typeof(Term);
+                type = typeof(ComeFunc);
             }
             return content;
         }
 
-        public static object App(object func, object arg, bool isExec)
+        public static bool App(ref object func, object arg, bool isExec)
         {
             var f = (Term)func;
             f.args.Add(arg);
@@ -1078,11 +1287,16 @@ namespace Ochawan
             if (f.args.Count == f.info.ArgCount - 1)
             {
                 if (isExec)
-                    return ComeFunc.Eval(f);
+                    func = ComeFunc.Eval(f);
                 else
-                    return ComeFunc.Check(f);
+                    func = ComeFunc.Check(f);
+                return true;
             }
-            return f;
+            else
+            {
+                func = f;
+                return false;
+            }
         }
 
         public object Eval(bool isExec)
@@ -1115,11 +1329,7 @@ namespace Ochawan
 
         public static void RegistVar(string name, object content, Type type)
         {
-           RegistVar(name, new Term(content, type));
-        }
-
-        public static void RegistVar(string name, Term term)
-        {
+            var term = toTerm(content, type);
             if (locals.Count == 0)
                 vars[name] = term;
             else
@@ -1128,79 +1338,107 @@ namespace Ochawan
 
         public static void SetFuncEnd(string name, int line)
         {
-            vars[name].info.end = line;
+            var func = (Term)vars[name];
+            func.info.end = line;
         }
 
-        public static void Assign(string name, object val, Type type)
+        public static void Assign(string name, object content, Type type)
         {
-            var term = new Term(val, type);
+            var term = toTerm(content, type);
             if (vars.ContainsKey(name))
             {
                 if (vars[name].type == term.type)
                     vars[name] = term;
                 else
-                    throw new Exception(vars[name].type + " ," + term.type + "type is mismatch");
+                    throw new Exception(vars[name].type + ", " + term.type + ": type is mismatch");
             }
             else if (local.ContainsKey(name))
                 if (local[name].type == term.type)
                     local[name] = term;
                 else
-                    throw new Exception(local[name].type + " ," + term.type + "type is mismatch");
+                    throw new Exception(local[name].type + ", " + term.type + ": type is mismatch");
             else
                 throw new Exception("no variable: " + name);
         }
 
-        public int Length
+
+        public object At(int atIx)
         {
-            get { return ((List<object>)content).Count; }
+            var list = ((List<object>)content);
+            if (atIx > list.Count - 1 || atIx < 0)
+                throw new Exception(atIx + ", index is out of size: " + list.Count);
+            return list[atIx];
         }
 
-        public object At(int index)
+        public string Str { get { return (string)content; } }
+
+        public List<object> List { get { return (List<object>)content; } }
+
+        public int Length { get { return ((List<object>)content).Count; } }
+
+        public Term Clone()
         {
-            return ((List<object>)content).ElementAt(index);
+            var copy = (Term)MemberwiseClone();
+            copy.content = new List<object>((List<object>)copy.content);
+            return copy;
         }
-
-        public bool IsFunc
-        {
-            get
-            {
-                string word = (string)content;
-                if (vars.ContainsKey(word))
-                    return ((Term)vars[word]).info != null;
-                var local = locals.First();
-                if (local.ContainsKey(word))
-                    return ((Term)local[word]).info != null;
-                return false;
-            }
-        }
-
-        public string Str
-        {
-            get { return (string)content; }
-        }
-
-
     }
 
     class ComeFunc
     {
-        static Graphics grfx;
         static ComeLang comelang;
-        static ViewForm form;
-        static Font midmsfont = new Font("MS UI Gothic", 12);
-        static Font bigmsfont = new Font("MS UI Gothic", 24);
-        static Font curfont = midmsfont;
-        static Brush curbrush = Brushes.Black;
         static object result;
+        public static List<string> List;
 
-        Dictionary<string, Func<ComeFunc, Term[], Term>> cache =
-            new Dictionary<string, Func<ComeFunc, Term[], Term>>();
+        public static object Eval(Term func)
+        {
+            var a = func.args;
+            switch (func.Str)
+            {
+                case "setbrush": FuncDef.setbrush((string)a[0]); break;
+                case "fillrect": FuncDef.fillrect((float)a[0], (float)a[1], (float)a[2], (float)a[3]); break;
+                case "print": FuncDef.print((string)a[0], (float)a[1], (float)a[2]); break;
+                case "invalidate": FuncDef.invalidate(); break;
+                case "random": return FuncDef.random((float)a[0]);
+                case "str": return FuncDef.str(a[0]);
+                case "input": return FuncDef.input();
+                case "untilinput": return FuncDef.untilinput();
+                case "clone": return FuncDef.clone((Term)a[0]);
+                default:
+                    if (func.info != null)
+                        return comelang.DefineFunc(func);
+                    else
+                        throw new Exception(func.Str + " is not a function");
+            }
+            return null;
+        }
+
+        public static Type Check(Term func)
+        {
+            func.args.Zip(func.info.argtypes, (x, type) =>
+            {
+                if (type == typeof(Term))
+                    return true;
+                var t = x.GetType();
+                if (t.Name == "RuntimeType")
+                    t = (Type)x;
+                if (t != type)
+                    throw new Exception(t + " : " + " is not match function argment type of: " + type);
+                else
+                    return true;
+            }
+            ).ToList();
+
+            return func.info.argtypes.Last();
+        }
 
         public static void Init(Graphics grfx, ComeLang lang, ViewForm form)
         {
-            ComeFunc.grfx = grfx;
             ComeFunc.comelang = lang;
-            ComeFunc.form = form;
+            FuncDef.grfx = grfx;
+            FuncDef.comelang = lang;
+            FuncDef.form = form;
+            ComeFunc.List = typeof(FuncDef).GetMethods().Select(x=>x.Name).ToList();
         }
 
         public static object Result
@@ -1220,7 +1458,29 @@ namespace Ochawan
             }
         }
 
+        public static Type[] ArgTypes(string func)
+        {
+            var method = typeof(FuncDef).GetMethod(func);
+            var pars = method.GetParameters();
+            var partypes = pars.Select(x=>x.ParameterType).ToList();
+            partypes.Add(method.ReturnType);
+            return partypes.ToArray();
+        }
+
+        public static String[] ArgNames(string func)
+        {
+            var method = typeof(FuncDef).GetMethod(func);
+            var pars = method.GetParameters();
+            var parnames = pars.Select(x=>x.Name).ToArray();
+            return parnames;
+        }
+
         /*
+        
+        Dictionary<string, Func<ComeFunc, Term[], Term>> cache =
+            new Dictionary<string, Func<ComeFunc, Term[], Term>>();
+
+        
         public Term Eval(string func, Term[] args)
         {
             if (func == "defines")
@@ -1234,67 +1494,60 @@ namespace Ochawan
                 cache.Add(func, methodDelegate);
             }
             return cache[func](this, args);
-        }*/
+        }
+         
+        */
+    }
 
-        public static Type[] ArgTypes(string func)
+    class FuncDef
+    {
+        public static Graphics grfx;
+        public static ComeLang comelang;
+        public static ViewForm form;
+        static Font midmsfont = new Font("MS UI Gothic", 12);
+        static Font bigmsfont = new Font("MS UI Gothic", 24);
+        static Font curfont = midmsfont;
+        static Brush curbrush = Brushes.Black;
+        static Random rand = new Random();
+
+        public static void setbrush(string color)
         {
-            if (func == "void")
-                return new Type[]{typeof(void)};
-            var method = typeof(ComeFunc).GetMethod(func);
-            var pars = method.GetParameters();
-            var partypes = pars.Select((x)=>{return x.ParameterType;}).ToList();
-            partypes.Add(method.ReturnType);
-            return partypes.ToArray();
+            curbrush = new SolidBrush(Color.FromName(color));
         }
 
-        public static String[] ArgNames(string func)
+        public static void fillrect(float w, float h, float x , float y)
         {
-            if (func == "void")
-                return null;
-            var method = typeof(ComeFunc).GetMethod(func);
-            var pars = method.GetParameters();
-            var parnames = pars.Select((x)=>{return x.Name;}).ToArray();
-            return parnames;
-        }
-
-        public static Type Check(Term func)
-        {
-            func.args.Zip(func.info.argtypes, (x, type) =>
-            {
-                var t = x.GetType();
-                if (t == typeof(Type))
-                    t = (Type)x;
-                if (t != type)
-                    throw new Exception(x + " is not match function argment type of: " + type);
-                else
-                    return true;
-            }
-            ).GetEnumerator();
-
-            return func.info.argtypes.Last();
-        }
-
-        public static object Eval(Term func)
-        {
-            var a = func.args;
-            switch(func.Str)
-            {
-                case "print": print((string)a[0], (float)a[1], (float)a[2]); break;
-                case "invalidate": form.Invalidate(); break;
-                default:
-                    if (func.IsFunc)
-                        return comelang.DefineFunc(func);
-                    else
-                        throw new Exception(func.Str + " is not a function");
-            }
-            return null;
+            grfx.FillRectangle(curbrush, x, y, w, h);
         }
 
         public static void print(string str, float x, float y)
         {
             grfx.DrawString(str, curfont, curbrush, x, y);
         }
-        
+
+        public static void invalidate() { form.Invalidate(); }
+
+        public static float random(float max) { return rand.Next((int)max); }
+
+        public static string str(object obj) { return obj.ToString(); }
+
+        public static string input()
+        {
+            if (comelang.InQueue.Count > 0)
+                return comelang.InQueue.Dequeue();
+            return "";
+        }
+
+        public static string untilinput()
+        {
+            while (comelang.InQueue.Count == 0)
+                System.Threading.Thread.Sleep(500);
+
+            return comelang.InQueue.Dequeue();
+        }
+
+        public static Term clone(Term term) { return term.Clone(); }
+
     }
 
     class FuncInfo

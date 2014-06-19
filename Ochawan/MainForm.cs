@@ -128,6 +128,8 @@ namespace Ochawan
             if (proc == 0)
             {
                 checkBox5.CheckState = CheckState.Unchecked;
+
+                return false;
             }
             else
             {
@@ -136,7 +138,6 @@ namespace Ochawan
                 return sasara.IsReady;
             }
 
-            return false;
         }
 
         private void MainForm_FormClosed(object sender, FormClosedEventArgs e)
@@ -540,6 +541,11 @@ namespace Ochawan
             else if (chat.StartsWith("Come ") && viewForm != null && !viewForm.IsDisposed)
             {
                 viewForm.Exec(chat.Substring(5), true);
+                return "next";
+            }
+            else if (chat.StartsWith("CA ") && viewForm != null && !viewForm.IsDisposed)
+            {
+                viewForm.Exec("add" + chat.Substring(2), true);
                 return "next";
             }
             //dataGridView1.FirstDisplayedCell = dataGridView1.Rows[0].Cells[0];
@@ -1014,6 +1020,9 @@ namespace Ochawan
                 if (e.KeyCode != Keys.Enter)
                     return;
                 //viewForm.Exec(textBox2.Text, true); return;
+                //if (Regex.IsMatch(textBox2.Text, @"\w"))
+                //    textBox2.Text = "";
+                //return;
                 if (m_stopped)
                     return;
                 if (textBox2.Text == "")
@@ -1397,6 +1406,19 @@ namespace Ochawan
             }
         }
 
+        private void textBox1_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode != Keys.Enter)
+                return;
+
+            if (viewForm != null)
+                viewForm.Exec(textBox1.Text, true);
+
+            //if (Regex.IsMatch(textBox2.Text, @"\w"))
+            //    textBox2.Text = "";
+            //return;
+        }
+
     }
 
     class Interop
@@ -1487,7 +1509,7 @@ namespace Ochawan
             return true;
         }
 
-        public bool IsReady { get { return speechText != null; } }
+        public bool IsReady { get { return sasaraWindow != null; } }
 
         public void speak()
         {
@@ -1683,7 +1705,7 @@ namespace Ochawan
             chat = urlPattern.Replace(chat, "URLです");
             chat = wwwPattern.Replace(chat, "エヘヘ");
             chat = clapPattern.Replace(chat, "パチパチ");
-            chat = chat.Replace("_", "");
+            chat = chat.Replace("_", "").Replace("ᴗ", "");
             if (!canSpeak.IsMatch(chat))
                 chat = "読めませんよ？";
 
